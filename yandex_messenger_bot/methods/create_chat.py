@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import ClassVar
 
+from pydantic import Field
+
 from yandex_messenger_bot.methods.base import YaBotMethod
 from yandex_messenger_bot.types.base import YaBotObject
 
@@ -18,8 +20,9 @@ class CreateChat(YaBotMethod[CreateChatResult]):
     __returning__: ClassVar[type] = CreateChatResult
 
     name: str
-    description: str | None = None
-    members: list[str] | None = None
-    admins: list[str] | None = None
-    subscribers: list[str] | None = None
-    is_channel: bool = False
+    description: str = ""
+    avatar_url: str | None = None
+    members: list[dict[str, str]] | None = None
+    admins: list[dict[str, str]] | None = None
+    subscribers: list[dict[str, str]] | None = None
+    is_channel: bool = Field(False, alias="channel")

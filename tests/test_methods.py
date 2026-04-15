@@ -173,3 +173,73 @@ class TestHTTPMethodContracts:
     def test_send_file_is_post_not_get(self):
         assert SendFile.__http_method__ == "POST"
         assert SendFile.__http_method__ != "GET"
+
+
+# ---------------------------------------------------------------------------
+# UpdateMembers
+# ---------------------------------------------------------------------------
+
+
+class TestUpdateMembers:
+    def setup_method(self):
+        from yandex_messenger_bot.methods.update_members import UpdateMembers
+
+        self.UpdateMembers = UpdateMembers
+
+    def test_update_members_api_path(self):
+        assert self.UpdateMembers.__api_path__ == "/bot/v1/chats/updateMembers/"
+
+    def test_update_members_http_method_is_post(self):
+        assert self.UpdateMembers.__http_method__ == "POST"
+
+    def test_update_members_not_multipart(self):
+        assert self.UpdateMembers.__multipart__ is False
+
+    def test_update_members_minimal_serialization_only_chat_id(self):
+        m = self.UpdateMembers(chat_id="chat-42")
+        dumped = m.model_dump(exclude_none=True)
+        assert dumped == {"chat_id": "chat-42"}
+
+    def test_update_members_members_serialized_as_user_objects(self):
+        m = self.UpdateMembers(chat_id="c1", members=["alice@org", "bob@org"])
+        dumped = m.model_dump(exclude_none=True)
+        assert dumped["members"] == [{"login": "alice@org"}, {"login": "bob@org"}]
+
+    def test_update_members_admins_serialized_as_user_objects(self):
+        m = self.UpdateMembers(chat_id="c1", admins=["admin@org"])
+        dumped = m.model_dump(exclude_none=True)
+        assert dumped["admins"] == [{"login": "admin@org"}]
+
+    def test_update_members_subscribers_serialized_as_user_objects(self):
+        m = self.UpdateMembers(chat_id="c1", subscribers=["sub@org"])
+        dumped = m.model_dump(exclude_none=True)
+        assert dumped["subscribers"] == [{"login": "sub@org"}]
+
+    def test_update_members_remove_serialized_as_user_objects(self):
+        m = self.UpdateMembers(chat_id="c1", remove=["gone@org"])
+        dumped = m.model_dump(exclude_none=True)
+        assert dumped["remove"] == [{"login": "gone@org"}]
+
+    def test_update_members_no_old_field_names(self):
+        """Ensure old wrong field names no longer exist on the model."""
+        field_names = set(self.UpdateMembers.model_fields.keys())
+        assert "members_add" not in field_names
+        assert "members_remove" not in field_names
+        assert "admins_add" not in field_names
+        assert "admins_remove" not in field_names
+        assert "subscribers_add" not in field_names
+        assert "subscribers_remove" not in field_names
+
+    def test_update_members_all_four_api_fields_present(self):
+        m = self.UpdateMembers(
+            chat_id="c1",
+            members=["m@org"],
+            admins=["a@org"],
+            subscribers=["s@org"],
+            remove=["r@org"],
+        )
+        dumped = m.model_dump(exclude_none=True)
+        assert dumped["members"] == [{"login": "m@org"}]
+        assert dumped["admins"] == [{"login": "a@org"}]
+        assert dumped["subscribers"] == [{"login": "s@org"}]
+        assert dumped["remove"] == [{"login": "r@org"}]

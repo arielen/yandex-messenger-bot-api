@@ -203,21 +203,31 @@ class Bot:
         self,
         *,
         name: str,
-        description: str | None = None,
+        description: str = "",
+        avatar_url: str | None = None,
         members: list[str] | None = None,
         admins: list[str] | None = None,
         subscribers: list[str] | None = None,
         is_channel: bool = False,
     ) -> CreateChatResult:
         """Create a new group chat or channel."""
+
+        def _to_user_objects(logins: list[str] | None) -> list[dict[str, str]] | None:
+            if logins is None:
+                return None
+            return [{"login": login} for login in logins]
+
         return await self(
-            CreateChat(
-                name=name,
-                description=description,
-                members=members,
-                admins=admins,
-                subscribers=subscribers,
-                is_channel=is_channel,
+            CreateChat.model_validate(
+                {
+                    "name": name,
+                    "description": description,
+                    "avatar_url": avatar_url,
+                    "members": _to_user_objects(members),
+                    "admins": _to_user_objects(admins),
+                    "subscribers": _to_user_objects(subscribers),
+                    "channel": is_channel,
+                }
             )
         )
 
@@ -226,22 +236,26 @@ class Bot:
         *,
         chat_id: str,
         members_add: list[str] | None = None,
-        members_remove: list[str] | None = None,
         admins_add: list[str] | None = None,
-        admins_remove: list[str] | None = None,
         subscribers_add: list[str] | None = None,
-        subscribers_remove: list[str] | None = None,
+        remove: list[str] | None = None,
     ) -> UpdateMembersResult:
-        """Add or remove members/admins/subscribers from a chat or channel."""
+        """Add or remove members/admins/subscribers from a chat or channel.
+
+        Args:
+            chat_id: Target chat identifier.
+            members_add: Logins of users to add as regular members.
+            admins_add: Logins of users to set as admins.
+            subscribers_add: Logins of users to add as subscribers.
+            remove: Logins of users to remove from the chat.
+        """
         return await self(
             UpdateMembers(
                 chat_id=chat_id,
-                members_add=members_add,
-                members_remove=members_remove,
-                admins_add=admins_add,
-                admins_remove=admins_remove,
-                subscribers_add=subscribers_add,
-                subscribers_remove=subscribers_remove,
+                members=members_add,
+                admins=admins_add,
+                subscribers=subscribers_add,
+                remove=remove,
             )
         )
 
@@ -290,23 +304,32 @@ class Bot:
     async def get_poll_results(
         self,
         *,
-        chat_id: str,
+        chat_id: str | None = None,
+        login: str | None = None,
+        invite_hash: str | None = None,
         message_id: int,
+        thread_id: int | None = None,
     ) -> PollResults:
         """Get aggregated results for a poll message."""
         return await self(
             GetPollResults(
                 chat_id=chat_id,
+                login=login,
+                invite_hash=invite_hash,
                 message_id=message_id,
+                thread_id=thread_id,
             )
         )
 
     async def get_poll_voters(
         self,
         *,
-        chat_id: str,
+        chat_id: str | None = None,
+        login: str | None = None,
+        invite_hash: str | None = None,
         message_id: int,
-        answer_number: int,
+        answer_id: int,
+        thread_id: int | None = None,
         cursor: int = 0,
         limit: int = 100,
     ) -> PollVoters:
@@ -314,8 +337,11 @@ class Bot:
         return await self(
             GetPollVoters(
                 chat_id=chat_id,
+                login=login,
+                invite_hash=invite_hash,
                 message_id=message_id,
-                answer_number=answer_number,
+                answer_id=answer_id,
+                thread_id=thread_id,
                 cursor=cursor,
                 limit=limit,
             )

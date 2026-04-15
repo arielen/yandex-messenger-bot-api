@@ -9,6 +9,7 @@ from yandex_messenger_bot.dispatcher.router import Router
 from yandex_messenger_bot.fsm.context import FSMContext
 from yandex_messenger_bot.fsm.storage.base import BaseStorage, StorageKey
 from yandex_messenger_bot.fsm.storage.memory import MemoryStorage
+from yandex_messenger_bot.fsm.strategy import FSMStrategy
 from yandex_messenger_bot.loggers import dispatcher as logger
 from yandex_messenger_bot.polling.polling import run_polling
 
@@ -42,9 +43,14 @@ class Dispatcher(Router):
             dp.run_polling(Bot(token="…"))
     """
 
-    def __init__(self, storage: BaseStorage | None = None) -> None:
+    def __init__(
+        self,
+        storage: BaseStorage | None = None,
+        fsm_strategy: FSMStrategy = FSMStrategy.USER_IN_CHAT,
+    ) -> None:
         super().__init__(name="__dispatcher__")
         self.storage: BaseStorage = storage or MemoryStorage()
+        self.fsm_strategy: FSMStrategy = fsm_strategy
         self._dependencies: dict[type, Callable[..., Any]] = {}
 
     # ------------------------------------------------------------------ #
@@ -83,11 +89,14 @@ class Dispatcher(Router):
         DI registrations, then calls :meth:`propagate`.
         """
         bot_id = hashlib.sha256(bot.token.encode()).hexdigest()[:_BOT_ID_HASH_LENGTH]
-        key = StorageKey(
-            bot_id=bot_id,
-            chat_id=update.chat.id,
-            user_id=update.from_user.id or "" if update.from_user else "",
-        )
+        user_id = update.from_user.id or "" if update.from_user else ""
+
+        if self.fsm_strategy == FSMStrategy.USER_IN_CHAT:
+            key = StorageKey(bot_id=bot_id, chat_id=update.chat.id, user_id=user_id)
+        elif self.fsm_strategy == FSMStrategy.CHAT:
+            key = StorageKey(bot_id=bot_id, chat_id=update.chat.id, user_id="")
+        else:  # GLOBAL_USER
+            key = StorageKey(bot_id=bot_id, chat_id="", user_id=user_id)
         state = FSMContext(storage=self.storage, key=key)
 
         data: dict[str, Any] = {

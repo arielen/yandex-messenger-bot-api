@@ -20,9 +20,11 @@ class Directive(YaBotObject):
     type: str
     name: str | None = None
     payload: dict[str, Any] = Field(default_factory=dict)
-    url: str | None = None
+    url: str | None = Field(None, alias="uri")
     text: str | None = None
-    timeout: int | None = None
+    timeout: int | None = Field(None, alias="timeout_seconds")
+    ids: list[str] | None = None
+    state: str | None = None
 
 
 class InlineSuggestButton(YaBotObject):

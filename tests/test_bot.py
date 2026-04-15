@@ -384,8 +384,8 @@ class TestBotCreateChat:
         )
         req = bot.get_request()
         assert req.description == "A channel"
-        assert req.members == ["user1"]
-        assert req.admins == ["admin1"]
+        assert req.members == [{"login": "user1"}]
+        assert req.admins == [{"login": "admin1"}]
         assert req.is_channel is True
 
 
@@ -400,10 +400,10 @@ class TestBotUpdateMembers:
     async def test_update_members_passes_chat_id(self) -> None:
         bot = MockedBot()
         bot.add_result({"ok": True})
-        await bot.update_members(chat_id="chat-xyz", members_remove=["u2"])
+        await bot.update_members(chat_id="chat-xyz", remove=["u2"])
         req = bot.get_request()
         assert req.chat_id == "chat-xyz"
-        assert req.members_remove == ["u2"]
+        assert req.remove == ["u2"]
 
 
 class TestBotGetUserLink:

@@ -27,7 +27,7 @@ class Update(YaBotObject):
     thread_id: int | None = None
 
     # Attachments (not mutually exclusive)
-    forward: ForwardInfo | None = None
+    forward: ForwardInfo | None = Field(None, alias="forwarded_messages")
     sticker: Sticker | None = None
     image: Image | None = None
     images: list[list[Image]] | None = None

@@ -13,5 +13,8 @@ class GetPollResults(YaBotMethod[PollResults]):
     __http_method__: ClassVar[str] = "GET"
     __returning__: ClassVar[type] = PollResults
 
-    chat_id: str
+    chat_id: str | None = None
+    login: str | None = None
+    invite_hash: str | None = None
     message_id: int
+    thread_id: int | None = None

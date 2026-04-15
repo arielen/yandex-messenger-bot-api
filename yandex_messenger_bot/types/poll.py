@@ -17,11 +17,13 @@ class PollVoter(YaBotObject):
     """A user who voted in a poll."""
 
     user: User
-    answer_number: int
+    timestamp: int
 
 
 class PollVoters(YaBotObject):
     """Paginated list of poll voters."""
 
+    answer_id: int
+    voted_count: int
     votes: list[PollVoter] = Field(default_factory=list)
     cursor: int = 0

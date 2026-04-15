@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from typing import ClassVar
+from typing import Annotated, Any, ClassVar
+
+from pydantic import Field, field_serializer
 
 from yandex_messenger_bot.methods.base import YaBotMethod
 from yandex_messenger_bot.types.base import YaBotObject
@@ -8,6 +10,13 @@ from yandex_messenger_bot.types.base import YaBotObject
 
 class UpdateMembersResult(YaBotObject):
     ok: bool = True
+
+
+def _logins_to_user_objects(logins: list[str] | None) -> list[dict[str, str]] | None:
+    """Convert a list of login strings to API User objects ``{"login": ...}``."""
+    if logins is None:
+        return None
+    return [{"login": login} for login in logins]
 
 
 class UpdateMembers(YaBotMethod[UpdateMembersResult]):
@@ -18,9 +27,11 @@ class UpdateMembers(YaBotMethod[UpdateMembersResult]):
     __returning__: ClassVar[type] = UpdateMembersResult
 
     chat_id: str
-    members_add: list[str] | None = None
-    members_remove: list[str] | None = None
-    admins_add: list[str] | None = None
-    admins_remove: list[str] | None = None
-    subscribers_add: list[str] | None = None
-    subscribers_remove: list[str] | None = None
+    members: Annotated[list[str] | None, Field(default=None)]
+    admins: Annotated[list[str] | None, Field(default=None)]
+    subscribers: Annotated[list[str] | None, Field(default=None)]
+    remove: Annotated[list[str] | None, Field(default=None)]
+
+    @field_serializer("members", "admins", "subscribers", "remove")
+    def _serialize_user_list(self, value: list[str] | None) -> list[dict[str, Any]] | None:
+        return _logins_to_user_objects(value)

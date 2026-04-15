@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from typing import Any
 from unittest.mock import MagicMock
 
@@ -12,6 +13,8 @@ from yandex_messenger_bot.dispatcher.handler import HandlerObject
 from yandex_messenger_bot.dispatcher.router import Router
 from yandex_messenger_bot.filters.base import BaseFilter
 from yandex_messenger_bot.fsm.context import FSMContext
+from yandex_messenger_bot.fsm.storage.base import StorageKey
+from yandex_messenger_bot.fsm.strategy import FSMStrategy
 from yandex_messenger_bot.types.update import Update
 
 # ---------------------------------------------------------------------------
@@ -429,10 +432,6 @@ class TestDispatcherFeedUpdate:
         )
 
         # Set state for upd1's chat/user via a separate context
-        import hashlib
-
-        from yandex_messenger_bot.fsm.storage.base import StorageKey
-
         bot_id = hashlib.sha256(bot.token.encode()).hexdigest()[:16]
         key1 = StorageKey(bot_id=bot_id, chat_id="chat-1", user_id="user-1")
         await dp.storage.set_state(key1, "SomeState")
@@ -497,3 +496,96 @@ class TestDispatcherFeedUpdate:
         bot = _make_bot_stub()
         # Should not raise
         await dp.feed_update(bot, make_update())
+
+
+class TestFSMStrategy:
+    """Tests for FSMStrategy wiring in Dispatcher."""
+
+    async def test_user_in_chat_strategy_is_default(self) -> None:
+        """Default strategy keys by (bot_id, chat_id, user_id)."""
+        dp = Dispatcher()
+        assert dp.fsm_strategy == FSMStrategy.USER_IN_CHAT
+
+        states: list[str | None] = []
+
+        @dp.message(_AlwaysPassFilter())
+        async def handler(state: FSMContext) -> None:
+            states.append(await state.get_state())
+
+        bot = _make_bot_stub()
+        bot_id = hashlib.sha256(bot.token.encode()).hexdigest()[:16]
+
+        # Set state for user-1 in chat-1
+        key = StorageKey(bot_id=bot_id, chat_id="chat-1", user_id="user-1")
+        await dp.storage.set_state(key, "active")
+
+        upd1 = make_update()  # default: chat-1, user-1
+        upd2 = make_update(
+            **{
+                "from": {"id": "user-2", "login": "other@org.ru", "display_name": "Other"},
+            }
+        )
+
+        await dp.feed_update(bot, upd1)
+        await dp.feed_update(bot, upd2)
+
+        assert states[0] == "active"
+        assert states[1] is None  # different user → different key
+
+    async def test_chat_strategy_shares_state_across_users(self) -> None:
+        """CHAT strategy keys by (bot_id, chat_id, '') — shared per chat."""
+        dp = Dispatcher(fsm_strategy=FSMStrategy.CHAT)
+
+        states: list[str | None] = []
+
+        @dp.message(_AlwaysPassFilter())
+        async def handler(state: FSMContext) -> None:
+            states.append(await state.get_state())
+
+        bot = _make_bot_stub()
+        bot_id = hashlib.sha256(bot.token.encode()).hexdigest()[:16]
+
+        # Set shared chat state
+        key = StorageKey(bot_id=bot_id, chat_id="chat-1", user_id="")
+        await dp.storage.set_state(key, "shared")
+
+        upd1 = make_update()  # user-1 in chat-1
+        upd2 = make_update(
+            **{
+                "from": {"id": "user-2", "login": "other@org.ru", "display_name": "Other"},
+            }
+        )  # user-2 in chat-1
+
+        await dp.feed_update(bot, upd1)
+        await dp.feed_update(bot, upd2)
+
+        # Both users see the same state
+        assert states[0] == "shared"
+        assert states[1] == "shared"
+
+    async def test_global_user_strategy_shares_state_across_chats(self) -> None:
+        """GLOBAL_USER strategy keys by (bot_id, '', user_id) — user state across chats."""
+        dp = Dispatcher(fsm_strategy=FSMStrategy.GLOBAL_USER)
+
+        states: list[str | None] = []
+
+        @dp.message(_AlwaysPassFilter())
+        async def handler(state: FSMContext) -> None:
+            states.append(await state.get_state())
+
+        bot = _make_bot_stub()
+        bot_id = hashlib.sha256(bot.token.encode()).hexdigest()[:16]
+
+        # Set global user state
+        key = StorageKey(bot_id=bot_id, chat_id="", user_id="user-1")
+        await dp.storage.set_state(key, "global")
+
+        upd1 = make_update()  # user-1 in chat-1
+        upd2 = make_update(chat={"id": "chat-2", "type": "group"})  # user-1 in chat-2
+
+        await dp.feed_update(bot, upd1)
+        await dp.feed_update(bot, upd2)
+
+        # Same user in different chats sees the same state
+        assert states[0] == "global"
+        assert states[1] == "global"

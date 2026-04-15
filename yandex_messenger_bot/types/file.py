@@ -25,3 +25,4 @@ class Sticker(YaBotObject):
 
     id: str
     emoji: str | None = None
+    set_id: str | None = None
