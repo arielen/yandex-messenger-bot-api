@@ -25,7 +25,7 @@ dependencies = [
 ]
 
 [project.urls]
-Repository = "https://github.com/arielen/yandex-messenger-bot-api"
+Repository = "https://github.com/arielen/yandex-messenger-bot"
 
 [tool.hatch.version]
 path = "yandex_messenger_bot/_meta.py"
