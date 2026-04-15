@@ -60,6 +60,7 @@ select = [
     "PL",   # pylint
     "Q",    # flake8-quotes
     "RET",  # flake8-return
+    "S",    # flake8-bandit — security (hardcoded secrets, injection, eval, etc.)
     "SIM",  # flake8-simplify
     "T10",  # flake8-debugger
     "T20",  # flake8-print
@@ -70,9 +71,17 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
+"yandex_messenger_bot/polling/polling.py" = [
+    "S311",    # pseudo-random generator for jitter/backoff, not crypto
+]
 "tests/**/*.py" = [
     "PLR2004", # magic values in test assertions are fine
     "PLC0415", # imports inside test functions are fine
+    "S101",    # assert is the whole point of tests
+    "S105",    # hardcoded test tokens/passwords are fine
+    "S106",    # hardcoded test tokens in arguments are fine
+    "S107",    # hardcoded test tokens in function defaults are fine
+    "S110",    # try-except-pass in mocked session is intentional
 ]
 
 [tool.ruff.format]
