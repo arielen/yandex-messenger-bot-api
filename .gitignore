@@ -217,3 +217,4 @@ __marimo__/
 
 # Reference repos (cloned for study)
 _reference_*/
+.playwright-mcp/

@@ -17,7 +17,7 @@ class ServerAction(YaBotObject):
 class BotRequestError(YaBotObject):
     """An error reported in a bot request."""
 
-    type: str | None = None
+    type: str
     name: str | None = None
     message: str | None = None
 

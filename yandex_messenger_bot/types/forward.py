@@ -7,9 +7,15 @@ from yandex_messenger_bot.types.chat import Chat
 from yandex_messenger_bot.types.user import User
 
 
-class ForwardInfo(YaBotObject):
-    """Information about a forwarded message."""
+class ForwardedMessage(YaBotObject):
+    """A single forwarded message — a subset of Update fields."""
 
-    from_user: User | None = Field(None, alias="from")
-    chat: Chat | None = None
     message_id: int | None = None
+    timestamp: int | None = None
+    chat: Chat | None = None
+    from_user: User | None = Field(None, alias="from")
+    text: str | None = None
+
+
+# Keep the old name as an alias for backward compatibility
+ForwardInfo = ForwardedMessage

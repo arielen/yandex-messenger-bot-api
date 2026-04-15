@@ -92,9 +92,9 @@ class Dispatcher(Router):
         user_id = update.from_user.id or "" if update.from_user else ""
 
         if self.fsm_strategy == FSMStrategy.USER_IN_CHAT:
-            key = StorageKey(bot_id=bot_id, chat_id=update.chat.id, user_id=user_id)
+            key = StorageKey(bot_id=bot_id, chat_id=update.chat.id or "", user_id=user_id)
         elif self.fsm_strategy == FSMStrategy.CHAT:
-            key = StorageKey(bot_id=bot_id, chat_id=update.chat.id, user_id="")
+            key = StorageKey(bot_id=bot_id, chat_id=update.chat.id or "", user_id="")
         else:  # GLOBAL_USER
             key = StorageKey(bot_id=bot_id, chat_id="", user_id=user_id)
         state = FSMContext(storage=self.storage, key=key)

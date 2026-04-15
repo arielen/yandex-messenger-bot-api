@@ -14,9 +14,9 @@ class RecipientMixin(BaseModel):
 
     @model_validator(mode="after")
     def _check_recipient(self) -> Self:
-        if not self.chat_id and not self.login:
+        if self.chat_id is None and self.login is None:
             raise ValueError("Either 'chat_id' or 'login' must be provided")
-        if self.chat_id and self.login:
+        if self.chat_id is not None and self.login is not None:
             raise ValueError("Provide either 'chat_id' or 'login', not both")
         return self
 

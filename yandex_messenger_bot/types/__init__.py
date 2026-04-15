@@ -10,7 +10,7 @@ from yandex_messenger_bot.types.button import (
 )
 from yandex_messenger_bot.types.chat import Chat
 from yandex_messenger_bot.types.file import Document, Image, Sticker
-from yandex_messenger_bot.types.forward import ForwardInfo
+from yandex_messenger_bot.types.forward import ForwardedMessage, ForwardInfo
 from yandex_messenger_bot.types.input_file import (
     BufferedInputFile,
     FSInputFile,
@@ -31,6 +31,7 @@ __all__ = [
     "Directive",
     "Document",
     "FSInputFile",
+    "ForwardedMessage",
     "ForwardInfo",
     "Image",
     "InlineSuggestButton",

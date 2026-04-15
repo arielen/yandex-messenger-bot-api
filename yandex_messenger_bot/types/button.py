@@ -30,7 +30,8 @@ class Directive(YaBotObject):
 class InlineSuggestButton(YaBotObject):
     """A button in the suggest buttons layout."""
 
-    title: str
+    id: str | None = None
+    title: str | None = None
     directives: list[Directive] = Field(default_factory=list)
 
 

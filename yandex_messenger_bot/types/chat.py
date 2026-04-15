@@ -5,8 +5,8 @@ from yandex_messenger_bot.types.base import YaBotObject
 class Chat(YaBotObject):
     """Represents a chat (private, group, or channel)."""
 
-    id: str
-    type: ChatType | None = None
+    id: str | None = None
+    type: ChatType
     organization_id: str | None = None
     title: str | None = None
     description: str | None = None

@@ -110,7 +110,7 @@ class AiohttpSession(BaseSession):
             header = resp.headers.get("Retry-After")
             if header is not None:
                 try:
-                    retry_after = float(header)
+                    retry_after = min(float(header), 300.0)
                 except ValueError:
                     retry_after = 1.0
         return description, retry_after
@@ -230,7 +230,8 @@ class AiohttpSession(BaseSession):
     async def stream_content(self, token: str, url: str) -> AsyncIterator[bytes]:  # ty: ignore[invalid-method-override]
         """Stream raw bytes from a URL using chunked transfer."""
         parsed = urlparse(url)
-        if parsed.scheme not in ("https", "http") or not url.startswith(self.BASE_URL):
+        base_parsed = urlparse(self.BASE_URL)
+        if parsed.scheme not in ("https", "http") or parsed.netloc != base_parsed.netloc:
             raise ValueError(f"Refusing to stream from untrusted URL: {url}")
         session = await self._get_session()
         headers = {"Authorization": f"OAuth {token}"}

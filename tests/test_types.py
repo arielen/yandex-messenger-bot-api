@@ -12,8 +12,8 @@ from yandex_messenger_bot.enums import ChatType
 from yandex_messenger_bot.types.bot_request import BotRequest, BotRequestError, ServerAction
 from yandex_messenger_bot.types.button import Directive, InlineSuggestButton, SuggestButtons
 from yandex_messenger_bot.types.chat import Chat
-from yandex_messenger_bot.types.file import Document, Image
-from yandex_messenger_bot.types.forward import ForwardInfo
+from yandex_messenger_bot.types.file import Document
+from yandex_messenger_bot.types.forward import ForwardedMessage
 from yandex_messenger_bot.types.input_file import BufferedInputFile, FSInputFile, URLInputFile
 from yandex_messenger_bot.types.update import Update
 from yandex_messenger_bot.types.user import User
@@ -26,7 +26,7 @@ MINIMAL_UPDATE_RAW = {
     "update_id": 1,
     "message_id": 100,
     "timestamp": 1700000000,
-    "chat": {"id": "chat-abc"},
+    "chat": {"id": "chat-abc", "type": "private"},
 }
 
 FULL_UPDATE_RAW = {
@@ -59,13 +59,17 @@ FULL_UPDATE_RAW = {
         [
             {"file_id": "img-small", "width": 100, "height": 75, "size": 4096},
             {"file_id": "img-large", "width": 800, "height": 600, "size": 32768},
-        ]
+        ],
     ],
-    "forward": {
-        "from": {"id": "user-888", "login": "bob", "display_name": "Bob", "robot": False},
-        "chat": {"id": "chat-source"},
-        "message_id": 55,
-    },
+    "forwarded_messages": [
+        {
+            "message_id": 55,
+            "timestamp": 1700000000,
+            "from": {"id": "user-888", "login": "bob", "display_name": "Bob", "robot": False},
+            "chat": {"id": "chat-source", "type": "group"},
+            "text": "forwarded text",
+        },
+    ],
     "bot_request": {
         "server_action": {"name": "button_clicked", "payload": {"key": "val"}},
         "element_id": "btn-1",
@@ -117,28 +121,58 @@ class TestUpdateParsing:
         assert u.document.mime_type == "application/pdf"
         assert u.document.size == 204800
 
-    def test_images_2d_array(self):
-        """Yandex returns images as array of arrays (size variants per row)."""
+    def test_images_flat_array_normalized(self):
+        """Flat Image[] is auto-normalized to Image[][] by the validator."""
         u = Update.model_validate(FULL_UPDATE_RAW)
         assert u.images is not None
-        assert len(u.images) == 1  # one row
-        row = u.images[0]
-        assert len(row) == 2  # two size variants
-        small, large = row
-        assert isinstance(small, Image)
-        assert small.file_id == "img-small"
-        assert small.width == 100
-        assert large.file_id == "img-large"
-        assert large.width == 800
+        assert len(u.images) == 1  # flat [img, img] → [[img, img]]
+        variants = u.images[0]
+        assert len(variants) == 2
+        assert variants[0].file_id == "img-small"
+        assert variants[1].file_id == "img-large"
 
-    def test_forward_info_parsing(self):
+    def test_images_nested_array_passthrough(self):
+        """Nested Image[][] passes through the validator unchanged."""
+        raw = {
+            **MINIMAL_UPDATE_RAW,
+            "images": [
+                [{"file_id": "a", "width": 100, "height": 75}],
+                [{"file_id": "b", "width": 200, "height": 150}],
+            ],
+        }
+        u = Update.model_validate(raw)
+        assert u.images is not None
+        assert len(u.images) == 2  # two images
+        assert u.images[0][0].file_id == "a"
+        assert u.images[1][0].file_id == "b"
+
+    def test_forwarded_messages_parsing(self):
         u = Update.model_validate(FULL_UPDATE_RAW)
-        assert isinstance(u.forward, ForwardInfo)
-        assert u.forward.from_user is not None
-        assert u.forward.from_user.login == "bob"
-        assert u.forward.chat is not None
-        assert u.forward.chat.id == "chat-source"
-        assert u.forward.message_id == 55
+        assert u.forwarded_messages is not None
+        assert len(u.forwarded_messages) == 1
+        fwd = u.forwarded_messages[0]
+        assert isinstance(fwd, ForwardedMessage)
+        assert fwd.from_user is not None
+        assert fwd.from_user.login == "bob"
+        assert fwd.chat is not None
+        assert fwd.chat.id == "chat-source"
+        assert fwd.message_id == 55
+        assert fwd.text == "forwarded text"
+
+    def test_forwarded_messages_single_object_normalized(self):
+        """A single forwarded message dict is auto-wrapped in a list."""
+        raw = {
+            **MINIMAL_UPDATE_RAW,
+            "forwarded_messages": {
+                "message_id": 77,
+                "timestamp": 1700000000,
+                "text": "single",
+            },
+        }
+        u = Update.model_validate(raw)
+        assert u.forwarded_messages is not None
+        assert len(u.forwarded_messages) == 1
+        assert u.forwarded_messages[0].text == "single"
 
     def test_bot_request_parsing(self):
         u = Update.model_validate(FULL_UPDATE_RAW)
@@ -155,7 +189,7 @@ class TestUpdateParsing:
         assert u.from_user is None
         assert u.text is None
         assert u.thread_id is None
-        assert u.forward is None
+        assert u.forwarded_messages is None
         assert u.document is None
         assert u.images is None
         assert u.bot_request is None
@@ -179,7 +213,7 @@ class TestFrozenModels:
             u.update_id = 99  # type: ignore[misc]
 
     def test_chat_is_frozen(self):
-        chat = Chat(id="chat-1")
+        chat = Chat(id="chat-1", type="private")
         with pytest.raises(ValidationError):
             chat.id = "mutated"  # type: ignore[misc]
 
@@ -196,7 +230,7 @@ class TestFrozenModels:
 
 class TestChat:
     def test_is_channel_default_false(self):
-        chat = Chat(id="c-1")
+        chat = Chat(id="c-1", type="group")
         assert chat.is_channel is False
 
     def test_chat_type_enum_coercion(self):
