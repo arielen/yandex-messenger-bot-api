@@ -4,6 +4,7 @@ import asyncio
 import json
 from collections.abc import AsyncIterator
 from typing import Any
+from urllib.parse import urlparse
 
 import aiohttp
 
@@ -35,15 +36,18 @@ class AiohttpSession(BaseSession):
     def __init__(self, timeout: float = _DEFAULT_TIMEOUT) -> None:
         self._timeout = timeout
         self._session: aiohttp.ClientSession | None = None
+        self._lock = asyncio.Lock()
 
     async def _get_session(self) -> aiohttp.ClientSession:
         """Return the aiohttp session, creating it lazily on first call."""
         if self._session is None or self._session.closed:
-            connector = aiohttp.TCPConnector(
-                limit=100,
-                ttl_dns_cache=3600,
-            )
-            self._session = aiohttp.ClientSession(connector=connector)
+            async with self._lock:
+                if self._session is None or self._session.closed:
+                    connector = aiohttp.TCPConnector(
+                        limit=100,
+                        ttl_dns_cache=3600,
+                    )
+                    self._session = aiohttp.ClientSession(connector=connector, trust_env=False)
         return self._session
 
     def _build_url(self, path: str) -> str:
@@ -79,7 +83,8 @@ class AiohttpSession(BaseSession):
                 )
             elif isinstance(value, list) and value and isinstance(value[0], InputFile):
                 for i, item in enumerate(value):
-                    assert isinstance(item, InputFile)
+                    if not isinstance(item, InputFile):
+                        continue
                     file_bytes = b"".join([chunk async for chunk in item.read()])
                     form.add_field(
                         alias,
@@ -128,6 +133,7 @@ class AiohttpSession(BaseSession):
                 data=form,
                 headers=headers,
                 timeout=client_timeout,
+                allow_redirects=False,
             )
         elif method.__http_method__ == "GET":
             params = method.model_dump(exclude_none=True, by_alias=True)
@@ -136,6 +142,7 @@ class AiohttpSession(BaseSession):
                 params=params,
                 headers=headers,
                 timeout=client_timeout,
+                allow_redirects=False,
             )
         else:
             body = method.model_dump(exclude_none=True, by_alias=True)
@@ -144,6 +151,7 @@ class AiohttpSession(BaseSession):
                 json=body,
                 headers=headers,
                 timeout=client_timeout,
+                allow_redirects=False,
             )
 
         async with response_cm as resp:
@@ -215,24 +223,24 @@ class AiohttpSession(BaseSession):
             except (TimeoutError, aiohttp.ClientError) as exc:
                 raise NetworkError(f"Request failed: {type(exc).__name__}: {exc}") from exc
 
-        assert last_exc is not None
+        if last_exc is None:
+            raise RuntimeError("Retry loop exited without an exception")
         raise last_exc
 
-    async def stream_content(self, token: str, url: str) -> AsyncIterator[bytes]:
+    async def stream_content(self, token: str, url: str) -> AsyncIterator[bytes]:  # ty: ignore[invalid-method-override]
         """Stream raw bytes from a URL using chunked transfer."""
+        parsed = urlparse(url)
+        if parsed.scheme not in ("https", "http") or not url.startswith(self.BASE_URL):
+            raise ValueError(f"Refusing to stream from untrusted URL: {url}")
         session = await self._get_session()
         headers = {"Authorization": f"OAuth {token}"}
         client_timeout = aiohttp.ClientTimeout(total=self._timeout)
         try:
-            async with session.get(url, headers=headers, timeout=client_timeout) as resp:
+            async with session.get(
+                url, headers=headers, timeout=client_timeout, allow_redirects=False
+            ) as resp:
                 if resp.status >= _HTTP_CLIENT_ERROR:
-                    description = ""
-                    try:
-                        data = await resp.json(content_type=None)
-                        if isinstance(data, dict):
-                            description = data.get("description", "") or data.get("message", "")
-                    except Exception:
-                        description = await resp.text()
+                    description, _ = await self._extract_error_info(resp)
                     raise_for_status(resp.status, description)
                 async for chunk in resp.content.iter_chunked(_CHUNK_SIZE):
                     yield chunk

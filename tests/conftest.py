@@ -4,6 +4,10 @@ from __future__ import annotations
 
 from typing import Any
 
+import pytest
+
+from tests.mocked_bot import MockedBot
+from yandex_messenger_bot.dispatcher.dispatcher import Dispatcher
 from yandex_messenger_bot.types.update import Update
 
 
@@ -19,3 +23,15 @@ def make_update(text: str | None = "hello", update_id: int = 1, **kwargs: Any) -
     }
     payload.update(kwargs)
     return Update.model_validate(payload)
+
+
+@pytest.fixture
+def bot() -> MockedBot:
+    """Return a fresh MockedBot for each test."""
+    return MockedBot()
+
+
+@pytest.fixture
+def dispatcher() -> Dispatcher:
+    """Return a fresh Dispatcher for each test."""
+    return Dispatcher()

@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-import contextlib
 import inspect
 from collections.abc import Awaitable, Callable
 from typing import Any
 
 from yandex_messenger_bot.di.provider import resolve_handler_params
+from yandex_messenger_bot.loggers import dispatcher as logger
 from yandex_messenger_bot.types.update import Update
 
 
@@ -128,8 +128,10 @@ class HandlerObject:
             return await self.callback(**kwargs)
         finally:
             for cleanup in reversed(cleanups):
-                with contextlib.suppress(Exception):
+                try:
                     await cleanup
+                except Exception:
+                    logger.warning("Error during DI cleanup", exc_info=True)
 
 
 async def _invoke_filter(

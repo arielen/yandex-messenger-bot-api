@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from io import BytesIO
 from pathlib import Path
-from typing import Any, BinaryIO, Self, TypeVar
+from typing import Any, BinaryIO, ClassVar, Self, TypeVar
+from urllib.parse import quote
 
 from yandex_messenger_bot.client.session.aiohttp import AiohttpSession
 from yandex_messenger_bot.client.session.base import BaseSession
@@ -32,6 +33,9 @@ TResult = TypeVar("TResult")
 class Bot:
     """High-level client for the Yandex Messenger Bot API."""
 
+    _API_BASE_URL: ClassVar[str] = "https://botapi.messenger.yandex.net"
+    _TOKEN_MASK_MIN_LEN: ClassVar[int] = 8
+
     def __init__(
         self,
         token: str,
@@ -39,6 +43,13 @@ class Bot:
     ) -> None:
         self._token = token
         self._session = session or AiohttpSession()
+
+    def __repr__(self) -> str:
+        if len(self._token) > self._TOKEN_MASK_MIN_LEN:
+            masked = f"{self._token[:4]}...{self._token[-4:]}"
+        else:
+            masked = "***"
+        return f"Bot(token={masked!r})"
 
     @property
     def token(self) -> str:
@@ -329,18 +340,18 @@ class Bot:
         If destination is a Path, writes to disk and returns None.
         If destination is a file-like object, writes to it and returns None.
         """
-        url = f"{AiohttpSession.BASE_URL}/bot/v1/messages/getFile/?file_id={file_id}"
+        url = f"{self._API_BASE_URL}/bot/v1/messages/getFile/?file_id={quote(file_id, safe='')}"
         if destination is None:
             buffer = BytesIO()
-            async for chunk in self._session.stream_content(self._token, url):
+            async for chunk in self._session.stream_content(self._token, url):  # ty: ignore[not-iterable]
                 buffer.write(chunk)
             buffer.seek(0)
             return buffer
         if isinstance(destination, Path):
             with destination.open("wb") as f:
-                async for chunk in self._session.stream_content(self._token, url):
+                async for chunk in self._session.stream_content(self._token, url):  # ty: ignore[not-iterable]
                     f.write(chunk)
             return None
-        async for chunk in self._session.stream_content(self._token, url):
+        async for chunk in self._session.stream_content(self._token, url):  # ty: ignore[not-iterable]
             destination.write(chunk)
         return None

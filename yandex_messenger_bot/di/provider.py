@@ -6,8 +6,10 @@ from typing import Annotated, Any, get_args, get_origin, get_type_hints
 
 from yandex_messenger_bot.di.inject import Inject
 from yandex_messenger_bot.exceptions import DependencyResolutionError
+from yandex_messenger_bot.loggers import dispatcher as logger
 
 _BUILTIN_TYPES: frozenset[type] = frozenset({str, int, float, bool, bytes, dict, list, tuple, set})
+_MISSING = object()
 
 
 async def resolve_handler_params(
@@ -23,6 +25,8 @@ async def resolve_handler_params(
     try:
         hints = get_type_hints(callback, include_extras=True)
     except Exception:
+        cb_name = getattr(callback, "__name__", repr(callback))
+        logger.debug("Failed to resolve type hints for %s", cb_name, exc_info=True)
         hints = {}
 
     sig = inspect.signature(callback)
@@ -48,9 +52,6 @@ async def resolve_handler_params(
                 cleanups.append(cleanup)
 
     return result, cleanups
-
-
-_MISSING = object()
 
 
 async def _resolve_param(
@@ -131,7 +132,11 @@ async def _call_factory(
     """
     if inspect.isasyncgenfunction(factory):
         gen: AsyncGenerator[Any, None] = factory()
-        value = await gen.__anext__()
+        try:
+            value = await gen.__anext__()
+        except BaseException:
+            await gen.aclose()
+            raise
         return value, gen.aclose()
 
     if inspect.iscoroutinefunction(factory):

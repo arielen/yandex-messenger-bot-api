@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator
 from pathlib import Path
@@ -42,9 +43,16 @@ class FSInputFile(InputFile):
         super().__init__(filename=filename or self._path.name)
 
     async def read(self) -> AsyncIterator[bytes]:
-        with self._path.open("rb") as f:
-            while chunk := f.read(self._chunk_size):
+        loop = asyncio.get_running_loop()
+        f = await loop.run_in_executor(None, self._path.open, "rb")
+        try:
+            while True:
+                chunk: bytes = await loop.run_in_executor(None, f.read, self._chunk_size)  # ty: ignore[invalid-assignment]
+                if not chunk:
+                    break
                 yield chunk
+        finally:
+            await loop.run_in_executor(None, f.close)
 
 
 class URLInputFile(InputFile):

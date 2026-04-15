@@ -8,6 +8,7 @@ from yandex_messenger_bot.dispatcher.middlewares.base import BaseMiddleware
 from yandex_messenger_bot.dispatcher.router import Router
 from yandex_messenger_bot.filters.callback import ServerActionFilter
 from yandex_messenger_bot.filters.command import CommandFilter
+from yandex_messenger_bot.filters.magic import F
 from yandex_messenger_bot.filters.state import StateFilter
 from yandex_messenger_bot.fsm.context import FSMContext
 from yandex_messenger_bot.fsm.state import State, StatesGroup
@@ -18,6 +19,7 @@ __all__ = [
     "Bot",
     "CommandFilter",
     "Dispatcher",
+    "F",
     "FSMContext",
     "Inject",
     "Router",

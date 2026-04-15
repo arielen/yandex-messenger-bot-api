@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 from yandex_messenger_bot.dispatcher.event_observer import _UNHANDLED, EventObserver
@@ -31,6 +31,9 @@ class Router:
     def __init__(self, name: str | None = None) -> None:
         self.name = name
 
+        # ---- Parent back-reference (set by include_router on the parent) -----
+        self._parent_router: Router | None = None
+
         # ---- Built-in event observers ----------------------------------------
         self.message: EventObserver = EventObserver()
         """Observer for general message updates (text, file, image, sticker…)."""
@@ -50,6 +53,18 @@ class Router:
 
     def include_router(self, router: Router) -> None:
         """Attach *router* as a child of this router."""
+        if router is self:
+            msg = "A router cannot include itself."
+            raise ValueError(msg)
+        # Cycle detection: walk up from self to root; if we encounter *router*
+        # it would form a cycle.
+        node: Router | None = self._parent_router
+        while node is not None:
+            if node is router:
+                msg = "Circular router inclusion detected."
+                raise ValueError(msg)
+            node = node._parent_router
+        router._parent_router = self
         self._sub_routers.append(router)
 
     def _collect_routers(self) -> list[Router]:
@@ -110,26 +125,71 @@ class Router:
 
         1. ``bot_request`` observer — only if the update has a ``bot_request``.
         2. ``message`` observer — always attempted.
-        3. Each sub-router, in registration order.
 
-        Returns the first non-*None* handler result, or *None* if nothing
-        matched.
+        Each event type is propagated through the entire router tree (own
+        handlers + sub-routers), wrapped in the current router's outer
+        middleware.  This ensures parent outer middleware wraps child handler
+        execution exactly once.
         """
-        # 1. bot_request observer
+        # 1. bot_request event path
         if update.bot_request is not None:
-            result = await self.bot_request.trigger(update, data)
+            result = await self._propagate_event_tree(
+                self.bot_request,
+                update,
+                data,
+            )
             if result is not _UNHANDLED:
                 return result
 
-        # 2. message observer
-        result = await self.message.trigger(update, data)
-        if result is not _UNHANDLED:
-            return result
+        # 2. message event path
+        return await self._propagate_event_tree(self.message, update, data)
 
-        # 3. sub-routers (depth-first)
-        for sub in self._sub_routers:
-            result = await sub.propagate(update, data)
+    async def _propagate_event_tree(
+        self,
+        observer: EventObserver,
+        update: Update,
+        data: dict[str, Any],
+    ) -> Any:
+        """Propagate an event through own handlers + sub-routers, wrapped in
+        own outer middleware.
+
+        Each router wraps its sub-tree in its own outer middleware, so parent
+        middleware runs outermost and child middleware runs innermost — without
+        the parent middleware executing twice.
+        """
+        _AnyHandler = Callable[..., Awaitable[Any]]
+        event_attr = "bot_request" if observer is self.bot_request else "message"
+
+        async def _core(update: Update, data: dict[str, Any]) -> Any:
+            # Try own handlers (inner middleware applied by observer.trigger)
+            result = await observer.trigger(update, data)
             if result is not _UNHANDLED:
                 return result
+            # Try sub-routers depth-first
+            for sub in self._sub_routers:
+                sub_observer: EventObserver = getattr(sub, event_attr)
+                result = await sub._propagate_event_tree(
+                    sub_observer,
+                    update,
+                    data,
+                )
+                if result is not _UNHANDLED:
+                    return result
+            return _UNHANDLED
 
-        return _UNHANDLED
+        # Wrap _core in this router's outer middleware for this event type
+        chain: _AnyHandler = _core
+        for mw in reversed(observer._outer_middlewares):
+            _prev = chain
+
+            async def _outer_wrapped(
+                u: Update,
+                d: dict[str, Any],
+                _mw: Any = mw,
+                _next: _AnyHandler = _prev,
+            ) -> Any:
+                return await _mw(_next, u, d)
+
+            chain = _outer_wrapped
+
+        return await chain(update, data)

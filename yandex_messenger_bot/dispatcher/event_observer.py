@@ -71,64 +71,47 @@ class EventObserver:
         """Try each registered handler in order.
 
         Returns the result of the *first* handler whose filters all pass, or
-        *None* if no handler matched.
+        :data:`_UNHANDLED` if no handler matched.
 
-        The call is wrapped by outer middlewares first, then for each
-        matching handler by inner middlewares.
+        Inner middlewares wrap each matched handler call.  **Outer middleware
+        is NOT applied here** — it is applied by
+        :meth:`Router._propagate_event_tree` so that parent router middleware
+        correctly wraps child-router handlers without running twice.
         """
         # Always make `update` available in the data dict so handlers can
         # declare `update: Update` as a parameter and receive it via DI.
         if "update" not in data:
             data = {**data, "update": update}
 
-        # Build the core dispatch coroutine
-        async def _dispatch(update: Update, data: dict[str, Any]) -> Any:
-            for handler in self.handlers:
-                extra = await handler.check_filters(update, data)
-                if extra is None:
-                    continue
+        for handler in self.handlers:
+            extra = await handler.check_filters(update, data)
+            if extra is None:
+                continue
 
-                merged = {**data, **extra}
+            merged = {**data, **extra}
 
-                # Build inner middleware chain around this handler
-                async def _call_handler(
-                    _update: Update,
-                    _data: dict[str, Any],
-                    _handler: HandlerObject = handler,
-                ) -> Any:
-                    return await _handler.call(_update, _data)
-
-                chain: _AnyHandler = _call_handler
-                for mw in reversed(self._middlewares):
-                    _prev = chain
-
-                    async def _wrapped(
-                        u: Update,
-                        d: dict[str, Any],
-                        _mw: Any = mw,
-                        _next: _AnyHandler = _prev,
-                    ) -> Any:
-                        return await _mw(_next, u, d)
-
-                    chain = _wrapped
-
-                return await chain(update, merged)
-
-            return _UNHANDLED  # no handler matched
-
-        # Wrap with outer middlewares
-        outer_chain: _AnyHandler = _dispatch
-        for mw in reversed(self._outer_middlewares):
-            _prev_outer = outer_chain
-
-            async def _outer_wrapped(
-                u: Update,
-                d: dict[str, Any],
-                _mw: Any = mw,
-                _next: _AnyHandler = _prev_outer,
+            # Build inner middleware chain around this handler
+            async def _call_handler(
+                _update: Update,
+                _data: dict[str, Any],
+                _handler: HandlerObject = handler,
             ) -> Any:
-                return await _mw(_next, u, d)
+                return await _handler.call(_update, _data)
 
-            outer_chain = _outer_wrapped
+            chain: _AnyHandler = _call_handler
+            for mw in reversed(self._middlewares):
+                _prev = chain
 
-        return await outer_chain(update, data)
+                async def _wrapped(
+                    u: Update,
+                    d: dict[str, Any],
+                    _mw: Any = mw,
+                    _next: _AnyHandler = _prev,
+                ) -> Any:
+                    return await _mw(_next, u, d)
+
+                chain = _wrapped
+
+            return await chain(update, merged)
+
+        return _UNHANDLED  # no handler matched

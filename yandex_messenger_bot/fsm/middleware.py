@@ -1,3 +1,5 @@
+# TODO: implement FSMStrategy support in Dispatcher
+# This module is a placeholder stub — FSMContextMiddleware is not yet wired.
 from __future__ import annotations
 
 # FSMContextMiddleware — to be implemented when the dispatcher middleware

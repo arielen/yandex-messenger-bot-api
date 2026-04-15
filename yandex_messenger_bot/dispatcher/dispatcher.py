@@ -16,6 +16,8 @@ if TYPE_CHECKING:
     from yandex_messenger_bot.client.bot import Bot
     from yandex_messenger_bot.types.update import Update
 
+_BOT_ID_HASH_LENGTH = 16
+
 
 class Dispatcher(Router):
     """Top-level dispatcher that owns the bot and drives update processing.
@@ -80,7 +82,7 @@ class Dispatcher(Router):
         ``chat``, ``user``, ``state``, ``dispatcher``), resolves any custom
         DI registrations, then calls :meth:`propagate`.
         """
-        bot_id = hashlib.sha256(bot.token.encode()).hexdigest()[:16]
+        bot_id = hashlib.sha256(bot.token.encode()).hexdigest()[:_BOT_ID_HASH_LENGTH]
         key = StorageKey(
             bot_id=bot_id,
             chat_id=update.chat.id,

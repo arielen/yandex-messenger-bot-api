@@ -1,3 +1,5 @@
+# TODO: implement FSMStrategy support in Dispatcher
+# This enum is defined but not yet wired into any dispatcher logic.
 from __future__ import annotations
 
 from enum import StrEnum

@@ -18,7 +18,7 @@ class BaseSession(ABC):
         ...
 
     @abstractmethod
-    def stream_content(self, token: str, url: str) -> AsyncIterator[bytes]:
+    async def stream_content(self, token: str, url: str) -> AsyncIterator[bytes]:
         """Stream content from a URL as an async iterator of byte chunks."""
         ...
 

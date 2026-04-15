@@ -79,7 +79,6 @@ class _InvertFilter(BaseFilter):
 
     async def __call__(self, update: Update, **data: Any) -> bool | dict[str, Any]:
         result = await self._inner(update, **data)
-        # A dict is truthy — invert it to False
         if isinstance(result, dict):
-            return not result
+            return False  # filter passed (with or without extras), so inverted = not passed
         return not result
