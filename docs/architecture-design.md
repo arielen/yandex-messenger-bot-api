@@ -185,7 +185,7 @@ class Update(YaBotObject):
 ```python
 class InputFile(ABC):
     filename: str | None
-    
+
     @abstractmethod
     async def read(self) -> AsyncIterator[bytes]: ...
 
@@ -211,15 +211,15 @@ TResult = TypeVar("TResult")
 
 class YaBotMethod(BaseModel, Generic[TResult], ABC):
     model_config = ConfigDict(frozen=True, populate_by_name=True)
-    
+
     @classmethod
     @abstractmethod
     def __api_path__(cls) -> str: ...
-    
+
     @classmethod
     def __http_method__(cls) -> str:
         return "POST"
-    
+
     @classmethod
     @abstractmethod
     def __returning__(cls) -> type[TResult]: ...
@@ -236,11 +236,11 @@ class SendText(YaBotMethod[Message]):
     thread_id: int | None = None
     inline_keyboard: list[dict] | None = None    # deprecated
     suggest_buttons: SuggestButtons | None = None
-    
+
     @classmethod
     def __api_path__(cls) -> str:
         return "/bot/v1/messages/sendText/"
-    
+
     @classmethod
     def __returning__(cls) -> type[Message]:
         return Message
@@ -274,12 +274,12 @@ class Bot:
         token: str,
         session: BaseSession | None = None,  # defaults to AiohttpSession
     ) -> None: ...
-    
+
     # Execute any method
     async def __call__(self, method: YaBotMethod[T]) -> T: ...
-    
+
     # Shortcuts for all API methods
-    async def send_text(self, chat_id: str | None = None, login: str | None = None, 
+    async def send_text(self, chat_id: str | None = None, login: str | None = None,
                         text: str, **kwargs) -> Message: ...
     async def send_file(self, chat_id: str | None = None, login: str | None = None,
                         document: InputFile, **kwargs) -> Message: ...
@@ -295,11 +295,11 @@ class Bot:
     async def get_poll_voters(self, ...) -> PollVoters: ...
     async def set_webhook(self, url: str | None) -> BotSelf: ...
     async def get_updates(self, offset: int = 0, limit: int = 100) -> list[Update]: ...
-    
+
     # Context manager
     async def __aenter__(self) -> Self: ...
     async def __aexit__(self, *args) -> None: ...  # closes session
-    
+
     # Download helper
     async def download(self, file_id: str, destination: Path | BinaryIO | None = None) -> BytesIO | None: ...
 ```
@@ -310,18 +310,18 @@ class Bot:
 class BaseSession(ABC):
     @abstractmethod
     async def make_request(self, token: str, method: YaBotMethod[T]) -> T: ...
-    
+
     @abstractmethod
     async def stream_content(self, token: str, url: str) -> AsyncIterator[bytes]: ...
-    
+
     @abstractmethod
     async def close(self) -> None: ...
 
 class AiohttpSession(BaseSession):
     """aiohttp-based session with connection pooling, retry, timeout."""
-    
+
     BASE_URL = "https://botapi.messenger.yandex.net"
-    
+
     def __init__(
         self,
         timeout: float = 60.0,
@@ -340,16 +340,16 @@ class Router:
         self.shutdown = LifecycleObserver()
         self._sub_routers: list[Router] = []
         self._middlewares = MiddlewareManager()
-    
+
     def include_router(self, router: Router) -> None: ...
-    
+
     # Decorator shortcuts
     def on_message(self, *filters) -> Callable: ...      # register message handler
     def on_bot_request(self, *filters) -> Callable: ...   # register bot_request handler
 
 class Dispatcher(Router):
     def __init__(self, storage: BaseStorage | None = None) -> None: ...
-    
+
     async def feed_update(self, bot: Bot, update: Update) -> None: ...
     async def start_polling(self, bot: Bot) -> None: ...
     def run_polling(self, bot: Bot) -> None: ...          # sync entry point
@@ -549,7 +549,7 @@ async def start_polling(self, bot: Bot) -> None:
     """Long-poll loop with backoff and jitter."""
     offset = 0
     backoff = Backoff(min_delay=0.5, max_delay=30.0, factor=2, jitter=0.5)
-    
+
     while not self._stop:
         try:
             updates = await bot.get_updates(offset=offset, limit=100)
@@ -569,15 +569,15 @@ async def start_polling(self, bot: Bot) -> None:
 ```python
 class WebhookHandler:
     """aiohttp request handler for webhook mode."""
-    
+
     def __init__(self, dispatcher: Dispatcher, bot: Bot) -> None: ...
-    
+
     async def handle(self, request: web.Request) -> web.Response:
         data = await request.json()
         update = Update.model_validate(data)
         await self.dispatcher.feed_update(self.bot, update)
         return web.Response(status=200)
-    
+
     def setup(self, app: web.Application, path: str = "/webhook") -> None:
         app.router.add_post(path, self.handle)
 ```
@@ -588,18 +588,18 @@ class WebhookHandler:
 # Message gets a _bot reference via context propagation
 class Message(YaBotObject):
     ...
-    
+
     async def answer(self, text: str, **kwargs) -> Message:
         """Reply to the chat this message came from."""
         return await self._bot.send_text(chat_id=self.chat.id, text=text, **kwargs)
-    
+
     async def reply(self, text: str, **kwargs) -> Message:
         """Reply quoting this message."""
         return await self._bot.send_text(
             chat_id=self.chat.id, text=text,
             reply_message_id=self.message_id, **kwargs
         )
-    
+
     async def delete(self) -> bool:
         return await self._bot.delete_message(
             chat_id=self.chat.id, message_id=self.message_id
