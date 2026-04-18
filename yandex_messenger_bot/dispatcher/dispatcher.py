@@ -5,6 +5,7 @@ import hashlib
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
+from yandex_messenger_bot.context import reset_current_bot, set_current_bot
 from yandex_messenger_bot.dispatcher.router import Router
 from yandex_messenger_bot.fsm.context import FSMContext
 from yandex_messenger_bot.fsm.storage.base import BaseStorage, StorageKey
@@ -36,7 +37,7 @@ class Dispatcher(Router):
 
         @dp.message(CommandFilter("start"))
         async def start(update: Update, bot: Bot) -> None:
-            await bot.send_text(chat_id=update.chat.id, text="Hello!")
+            await update.reply("Hello!")
 
 
         if __name__ == "__main__":
@@ -110,10 +111,13 @@ class Dispatcher(Router):
         if update.from_user is not None:
             data["user"] = update.from_user
 
+        token = set_current_bot(bot)
         try:
             await self.propagate(update, data)
         except Exception:
             logger.exception("Unhandled error processing update %d", update.update_id)
+        finally:
+            reset_current_bot(token)
 
     # ------------------------------------------------------------------ #
     # Polling entry points                                                 #

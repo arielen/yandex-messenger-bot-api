@@ -109,6 +109,38 @@ class Bot:
             )
         )
 
+    async def edit_text(
+        self,
+        *,
+        chat_id: str | None = None,
+        login: str | None = None,
+        message_id: int,
+        text: str,
+        payload_id: str | None = None,
+        reply_message_id: int | None = None,
+        disable_notification: bool = False,
+        important: bool = False,
+        disable_web_page_preview: bool = False,
+        thread_id: int | None = None,
+        suggest_buttons: SuggestButtons | None = None,
+    ) -> SendTextResult:
+        """Edit a text message in a chat or user."""
+        return await self(
+            SendText(
+                chat_id=chat_id,
+                login=login,
+                message_id=message_id,
+                text=text,
+                payload_id=payload_id,
+                reply_message_id=reply_message_id,
+                disable_notification=disable_notification,
+                important=important,
+                disable_web_page_preview=disable_web_page_preview,
+                thread_id=thread_id,
+                suggest_buttons=suggest_buttons,
+            )
+        )
+
     async def send_file(
         self,
         *,

@@ -13,6 +13,7 @@ from yandex_messenger_bot.filters.state import StateFilter
 from yandex_messenger_bot.fsm.context import FSMContext
 from yandex_messenger_bot.fsm.state import State, StatesGroup
 from yandex_messenger_bot.fsm.strategy import FSMStrategy
+from yandex_messenger_bot.types.update import Update
 
 __all__ = [
     "__version__",
@@ -29,4 +30,5 @@ __all__ = [
     "State",
     "StateFilter",
     "StatesGroup",
+    "Update",
 ]

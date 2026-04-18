@@ -19,6 +19,7 @@ class SendText(RecipientMixin, YaBotMethod[SendTextResult]):
     __returning__: ClassVar[type] = SendTextResult
 
     text: str
+    message_id: int | None = None
     payload_id: str | None = None
     reply_message_id: int | None = None
     disable_notification: bool = False

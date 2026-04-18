@@ -11,3 +11,4 @@ class Chat(YaBotObject):
     title: str | None = None
     description: str | None = None
     is_channel: bool = False
+    thread_id: int | None = None

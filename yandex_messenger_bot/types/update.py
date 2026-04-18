@@ -1,10 +1,16 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pydantic import Field, field_validator
 
+from yandex_messenger_bot.enums import ChatType
 from yandex_messenger_bot.types.base import YaBotObject
+
+if TYPE_CHECKING:
+    from yandex_messenger_bot.client.bot import Bot
+    from yandex_messenger_bot.methods.send_text import SendTextResult
+
 from yandex_messenger_bot.types.bot_request import BotRequest
 from yandex_messenger_bot.types.chat import Chat
 from yandex_messenger_bot.types.file import Document, Image, Sticker
@@ -65,3 +71,49 @@ class Update(YaBotObject):
         if isinstance(v, dict):
             return [v]
         return v
+
+    async def reply(
+        self,
+        text: str,
+        *,
+        bot: Bot | None = None,
+        in_private: bool = False,
+        **kwargs: Any,
+    ) -> SendTextResult:
+        """Send a text message quoting this update (``reply_message_id``).
+
+        Uses the current bot from :func:`~yandex_messenger_bot.context.get_current_bot`
+        (set in :meth:`~yandex_messenger_bot.dispatcher.dispatcher.Dispatcher.feed_update`).
+        Pass ``bot`` to override or when calling outside the dispatcher.
+
+        If ``in_private`` is true, the message is sent to the user's personal chat
+        (``login``), not to the group/channel chat. Automatic ``reply_message_id``
+        and group ``thread_id`` are not applied (pass them explicitly in ``kwargs``
+        if the API accepts them for your case).
+        """
+        from yandex_messenger_bot.context import get_current_bot  # noqa: PLC0415
+
+        resolved = bot if bot is not None else get_current_bot()
+        payload = dict(kwargs)
+        if not in_private:
+            if "reply_message_id" not in payload:
+                payload["reply_message_id"] = self.message_id
+            if "thread_id" not in kwargs and self.chat.type == ChatType.GROUP:
+                tid = self.chat.thread_id if self.chat.thread_id is not None else self.thread_id
+                if tid is not None:
+                    payload["thread_id"] = tid
+
+        if in_private:
+            if self.from_user is not None and self.from_user.login is not None:
+                return await resolved.send_text(login=self.from_user.login, text=text, **payload)
+            if self.chat.type == ChatType.PRIVATE and self.chat.id is not None:
+                return await resolved.send_text(chat_id=self.chat.id, text=text, **payload)
+            raise ValueError(
+                "Cannot reply in private: need from_user.login or a private chat with chat.id"
+            )
+
+        if self.chat.id is not None:
+            return await resolved.send_text(chat_id=self.chat.id, text=text, **payload)
+        if self.from_user is not None and self.from_user.login is not None:
+            return await resolved.send_text(login=self.from_user.login, text=text, **payload)
+        raise ValueError("Cannot reply: update has no chat.id and no from_user.login")
