@@ -4,18 +4,33 @@ build-backend = "hatchling.build"
 
 [project]
 name = "yandex-messenger-bot"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Modern and fully asynchronous framework for Yandex Messenger Bot API"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.12"
+authors = [
+    { name = "Vladislav Pavlov", email = "pavlov_zv@mail.ru" },
+]
+keywords = [
+    "yandex",
+    "messenger",
+    "bot",
+    "asyncio",
+    "aiohttp",
+    "webhook",
+    "fsm",
+]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Framework :: AsyncIO",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Topic :: Communications :: Chat",
+    "Topic :: Software Development :: Libraries :: Python Modules",
     "Typing :: Typed",
 ]
 dependencies = [
@@ -25,10 +40,22 @@ dependencies = [
 ]
 
 [project.urls]
+Homepage = "https://github.com/arielen/yandex-messenger-bot"
+Documentation = "https://github.com/arielen/yandex-messenger-bot#readme"
 Repository = "https://github.com/arielen/yandex-messenger-bot"
+Issues = "https://github.com/arielen/yandex-messenger-bot/issues"
+Changelog = "https://github.com/arielen/yandex-messenger-bot/releases"
 
 [tool.hatch.version]
 path = "yandex_messenger_bot/_meta.py"
+
+[tool.hatch.build.targets.sdist]
+only-include = [
+    "yandex_messenger_bot",
+    "README.md",
+    "LICENSE",
+    "pyproject.toml",
+]
 
 [dependency-groups]
 dev = [

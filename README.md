@@ -1,8 +1,11 @@
 # yandex-messenger-bot
 
+[![PyPI version](https://img.shields.io/pypi/v/yandex-messenger-bot.svg)](https://pypi.org/project/yandex-messenger-bot/)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Typing: typed](https://img.shields.io/badge/typing-typed-blue.svg)](https://peps.python.org/pep-0561/)
+
+> **Unofficial library.** Not affiliated with or endorsed by Yandex.
 
 Modern, fully asynchronous Python framework for the [Yandex Messenger Bot API](https://yandex.ru/dev/messenger/).
 
@@ -299,6 +302,14 @@ uv run ruff format .
 uv run ty check yandex_messenger_bot/
 ```
 
+## Releasing
+
+1. Bump `__version__` in `yandex_messenger_bot/_meta.py` and commit.
+2. Create and push a tag: `git tag vX.Y.Z && git push origin vX.Y.Z`.
+3. The [Release to PyPI](.github/workflows/release.yml) workflow runs tests, builds, and publishes via OIDC.
+
+One-time PyPI setup (Trusted Publisher + GitHub `pypi` environment): see [docs/pypi-publishing.md](docs/pypi-publishing.md).
+
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE).
